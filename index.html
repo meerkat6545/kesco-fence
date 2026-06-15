@@ -4,16 +4,14 @@
     <meta charset="utf-8">
     <title>전기울타리 점검 현황</title>
     <style>
-        /* 화면 꽉 채우기 */
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #map { width: 100vw; height: 100vh; }
         
-        /* ⭐️ 지도 위에 둥둥 뜰 검색창 예쁘게 꾸미기 ⭐️ */
         #searchBox {
             position: absolute;
             top: 20px;
             left: 20px;
-            z-index: 2; /* 지도보다 위층에 띄우는 마법 */
+            z-index: 2; 
             background: rgba(255, 255, 255, 0.95);
             padding: 15px;
             border-radius: 8px;
@@ -24,6 +22,9 @@
         select { padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
         button { padding: 8px 12px; font-size: 14px; background: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         button:hover { background: #004494; }
+        
+        /* 말풍선 안쪽 글씨 예쁘게 꾸미기 */
+        .info-title { padding: 5px 10px; font-size: 14px; font-weight: bold; color: #333; text-align: center; }
     </style>
 </head>
 <body>
@@ -44,53 +45,51 @@
     <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=00c7675cbac86671a92d4d20490327d5&libraries=services"></script>
     
     <script>
-        // 지도 띄우기 (청주시청 기준)
         var mapContainer = document.getElementById('map');
         var mapOption = { center: new kakao.maps.LatLng(36.6424, 127.4890), level: 6 };
         var map = new kakao.maps.Map(mapContainer, mapOption);
-
-        // 카카오 주소 번역기 준비!
         var geocoder = new kakao.maps.services.Geocoder();
 
-        // ⭐️ '핀 꽂기' 버튼을 누르면 실행되는 마법 ⭐️
         function searchAndPin() {
-            // 1. 사용자가 적은 글씨(주소)와 선택한 색깔 가져오기
             var keyword = document.getElementById('addressInput').value;
             var selectedColor = document.getElementById('colorSelect').value;
 
-            // 빈칸이면 경고 띄우기
             if (!keyword) {
                 alert("주소를 입력해주세요!");
                 return;
             }
 
-            // 2. 카카오야, 이 주소 좌표 좀 찾아줘!
             geocoder.addressSearch(keyword, function(result, status) {
-                // 주소를 성공적으로 찾았다면?
                 if (status === kakao.maps.services.Status.OK) {
                     var coords = new kakao.maps.LatLng(result[0].y, result[0].x);
-
-                    // 3. 색깔에 맞춰서 핀 이미지 설정하기
                     var markerOptions = { map: map, position: coords };
                     
                     if (selectedColor === "red") {
-                        // 빨간 핀 이미지 주소 (카카오 공식 이미지)
                         var imageSrc = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png"; 
                         var imageSize = new kakao.maps.Size(31, 35); 
                         markerOptions.image = new kakao.maps.MarkerImage(imageSrc, imageSize);
                     }
-                    // 파란 핀은 카카오 기본 핀이라 이미지를 따로 안 줘도 파란색으로 나옵니다.
 
-                    // 지도에 핀 꽂기!
+                    // 1. 지도에 핀 꽂기
                     var marker = new kakao.maps.Marker(markerOptions);
 
-                    // 지도를 방금 핀 꽂은 곳으로 스르륵 부드럽게 이동시키기
-                    map.panTo(coords);
+                    // ⭐️ 2. 말풍선(인포윈도우) 만들기 ⭐️
+                    var iwContent = '<div class="info-title">' + keyword + '</div>'; // 검색한 주소를 말풍선 안에 쏙!
                     
-                    // 글씨 쓴 거 지워주기 (다음 검색을 위해)
+                    var infowindow = new kakao.maps.InfoWindow({
+                        content : iwContent,
+                        removable : true // x 버튼 눌러서 끌 수 있게 만들기
+                    });
+
+                    // ⭐️ 3. 핀에다가 '클릭 감지 센서' 달아주기 ⭐️
+                    kakao.maps.event.addListener(marker, 'click', function() {
+                        // 클릭하면 말풍선을 열어라!
+                        infowindow.open(map, marker);
+                    });
+
+                    map.panTo(coords);
                     document.getElementById('addressInput').value = "";
                 } else {
-                    // 주소가 이상할 때
                     alert("정확한 주소를 찾을 수 없어요. 동/읍/면 단위까지 다시 적어보세요!");
                 }
             });
