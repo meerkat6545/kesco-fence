@@ -22,7 +22,6 @@
 
         #panelContent { padding: 15px; }
 
-        /* ⭐️ 지적편집도를 빼고 버튼 2개로 깔끔하게 맞췄어 ⭐️ */
         .map-type-btns { display: flex; justify-content: space-between; margin-bottom: 20px; gap: 5px; }
         .map-type-btns button {
             flex: 1; padding: 8px 0; background: white; color: #0056b3; 
@@ -30,13 +29,11 @@
         }
         .map-type-btns button.active { background: #0056b3; color: white; }
 
-        /* 로고와 타이틀 영역 */
         .title-area {
             font-size: 18px; font-weight: bold; color: #0056b3; margin-bottom: 15px;
             display: flex; align-items: center; 
         }
         .title-area img { height: 22px; margin-right: 8px; } 
-        
         .title-area span.badge {
             background: #0056b3; color: white; font-size: 12px; padding: 2px 8px; border-radius: 12px; margin-left: 8px;
         }
@@ -51,14 +48,13 @@
         }
         .action-btns button:hover { background: #f0f8ff; }
         
-        .info-title { padding: 5px 10px; font-size: 14px; font-weight: bold; color: #333; text-align: center; }
+        .info-window-content { padding: 8px; text-align: center; font-family: 'Malgun Gothic'; }
     </style>
 </head>
 <body>
     <div id="controlPanel">
         <button id="toggleBtn" onclick="togglePanel()">접기 ▲</button>
         <div id="panelContent">
-            
             <div class="map-type-btns">
                 <button id="btnRoadmap" class="active" onclick="setMapType('roadmap')">일반지도</button>
                 <button id="btnSkyview" onclick="setMapType('skyview')">위성지도</button>
@@ -78,7 +74,7 @@
                 <div class="action-btns">
                     <button onclick="searchOnly()">검색</button>
                     <button onclick="addPin()">핀</button>
-                    <button onclick="clearPins()">삭제</button>
+                    <button onclick="clearAllPins()">삭제</button>
                 </div>
             </div>
         </div>
@@ -105,15 +101,13 @@
             }
         }
 
-        // 지적도 기능 지우고 깔끔하게 정리 완료
         function setMapType(type) {
             var btnRoadmap = document.getElementById('btnRoadmap');
             var btnSkyview = document.getElementById('btnSkyview');
-
             if (type === 'roadmap') {
                 map.setMapTypeId(kakao.maps.MapTypeId.ROADMAP);
                 btnRoadmap.className = 'active'; btnSkyview.className = '';
-            } else if (type === 'skyview') {
+            } else {
                 map.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
                 btnRoadmap.className = ''; btnSkyview.className = 'active';
             }
@@ -122,13 +116,9 @@
         function searchOnly() {
             var keyword = document.getElementById('addressInput').value;
             if (!keyword) { alert("주소를 입력해주세요!"); return; }
-
             geocoder.addressSearch(keyword, function(result, status) {
                 if (status === kakao.maps.services.Status.OK) {
-                    var coords = new kakao.maps.LatLng(result[0].y, result[0].x);
-                    map.panTo(coords);
-                } else {
-                    alert("주소를 찾을 수 없습니다.");
+                    map.panTo(new kakao.maps.LatLng(result[0].y, result[0].x));
                 }
             });
         }
@@ -136,43 +126,45 @@
         function addPin() {
             var keyword = document.getElementById('addressInput').value;
             var selectedColor = document.getElementById('colorSelect').value;
-
             if (!keyword) { alert("주소를 입력해주세요!"); return; }
 
             geocoder.addressSearch(keyword, function(result, status) {
                 if (status === kakao.maps.services.Status.OK) {
                     var coords = new kakao.maps.LatLng(result[0].y, result[0].x);
                     var markerOptions = { map: map, position: coords };
-                    
                     if (selectedColor === "red") {
-                        var imageSrc = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png"; 
-                        var imageSize = new kakao.maps.Size(31, 35); 
-                        markerOptions.image = new kakao.maps.MarkerImage(imageSrc, imageSize);
+                        markerOptions.image = new kakao.maps.MarkerImage("https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png", new kakao.maps.Size(31, 35));
                     }
-
                     var marker = new kakao.maps.Marker(markerOptions);
-                    markers.push(marker); 
-
-                    var iwContent = '<div class="info-title">' + keyword + '</div>';
-                    var infowindow = new kakao.maps.InfoWindow({ content : iwContent, removable : true });
-
-                    kakao.maps.event.addListener(marker, 'click', function() {
-                        infowindow.open(map, marker);
-                    });
-
+                    
+                    var iwContent = '<div class="info-window-content">' +
+                                    '<div style="margin-bottom:5px;">' + keyword + '</div>' +
+                                    '<button onclick="deleteThisMarker(this)" style="cursor:pointer;">삭제</button>' +
+                                    '</div>';
+                    var infowindow = new kakao.maps.InfoWindow({ content: iwContent, removable: true });
+                    marker.infowindow = infowindow;
+                    markers.push(marker);
+                    kakao.maps.event.addListener(marker, 'click', function() { infowindow.open(map, marker); });
                     map.panTo(coords);
-                } else {
-                    alert("주소를 찾을 수 없습니다.");
                 }
             });
         }
 
-        function clearPins() {
+        function deleteThisMarker(button) {
+            var iwContent = button.parentElement.parentElement;
             for (var i = 0; i < markers.length; i++) {
-                markers[i].setMap(null);
+                if (markers[i].infowindow.getContent() === iwContent.innerHTML) {
+                    markers[i].setMap(null);
+                    markers[i].infowindow.close();
+                    markers.splice(i, 1);
+                    break;
+                }
             }
-            markers = []; 
-            document.getElementById('addressInput').value = ""; 
+        }
+
+        function clearAllPins() {
+            for (var i = 0; i < markers.length; i++) { markers[i].setMap(null); }
+            markers = [];
         }
     </script>
 </body>
