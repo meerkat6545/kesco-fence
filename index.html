@@ -8,50 +8,33 @@
         #map { width: 100vw; height: 100vh; }
         
         #controlPanel {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 2; 
-            background: white;
-            width: 320px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            font-family: 'Malgun Gothic', sans-serif;
+            position: absolute; top: 20px; left: 20px; z-index: 2; 
+            background: white; width: 320px; border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: 'Malgun Gothic', sans-serif;
             overflow: hidden; 
         }
 
         #toggleBtn {
-            width: 100%;
-            background: #0056b3;
-            color: white;
-            border: none;
-            padding: 12px;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            text-align: center;
+            width: 100%; background: #0056b3; color: white; border: none; padding: 12px;
+            font-size: 15px; font-weight: bold; cursor: pointer; text-align: center;
         }
         #toggleBtn:hover { background: #004494; }
 
         #panelContent { padding: 15px; }
 
-        .map-type-btns { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        /* ⭐️ 지적편집도를 빼고 버튼 2개로 깔끔하게 맞췄어 ⭐️ */
+        .map-type-btns { display: flex; justify-content: space-between; margin-bottom: 20px; gap: 5px; }
         .map-type-btns button {
-            flex: 1; margin: 0 2px; padding: 8px 0; background: white; color: #0056b3; 
+            flex: 1; padding: 8px 0; background: white; color: #0056b3; 
             border: 1px solid #0056b3; border-radius: 4px; font-size: 13px; font-weight: bold; cursor: pointer;
         }
         .map-type-btns button.active { background: #0056b3; color: white; }
 
-        /* ⭐️ 로고와 주소 글씨 영역 ⭐️ */
+        /* 로고와 타이틀 영역 */
         .title-area {
-            font-size: 18px;
-            font-weight: bold;
-            color: #0056b3;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center; /* 사진과 글자를 같은 높이로 맞춰줍니다 */
+            font-size: 18px; font-weight: bold; color: #0056b3; margin-bottom: 15px;
+            display: flex; align-items: center; 
         }
-        /* 심볼 마크 크기 조절 */
         .title-area img { height: 22px; margin-right: 8px; } 
         
         .title-area span.badge {
@@ -61,7 +44,6 @@
         .search-box input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; font-size: 14px; }
         .search-box select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box; }
         
-        /* ⭐️ 3개로 나눠진 버튼 영역 디자인 ⭐️ */
         .action-btns { display: flex; gap: 5px; }
         .action-btns button {
             flex: 1; padding: 10px 0; background: white; color: #0056b3; 
@@ -76,14 +58,14 @@
     <div id="controlPanel">
         <button id="toggleBtn" onclick="togglePanel()">접기 ▲</button>
         <div id="panelContent">
+            
             <div class="map-type-btns">
                 <button id="btnRoadmap" class="active" onclick="setMapType('roadmap')">일반지도</button>
                 <button id="btnSkyview" onclick="setMapType('skyview')">위성지도</button>
-                <button id="btnDistrict" onclick="setMapType('district')">지적편집도</button>
             </div>
 
             <div class="title-area">
-                <img src="심볼마크.png" alt="로고"> 주소 <span class="badge">현황</span>
+                <img src="logo.png" alt="로고"> 주소 <span class="badge">현황</span>
             </div>
 
             <div class="search-box">
@@ -111,8 +93,6 @@
         var mapOption = { center: new kakao.maps.LatLng(36.6424, 127.4890), level: 6 };
         var map = new kakao.maps.Map(mapContainer, mapOption);
         var geocoder = new kakao.maps.services.Geocoder();
-
-        // 💡 핀들을 담아둘 빈 바구니 (나중에 '삭제' 버튼 누를 때 필요함)
         var markers = []; 
 
         function togglePanel() {
@@ -125,11 +105,10 @@
             }
         }
 
-        var isDistrictOn = false;
+        // 지적도 기능 지우고 깔끔하게 정리 완료
         function setMapType(type) {
             var btnRoadmap = document.getElementById('btnRoadmap');
             var btnSkyview = document.getElementById('btnSkyview');
-            var btnDistrict = document.getElementById('btnDistrict');
 
             if (type === 'roadmap') {
                 map.setMapTypeId(kakao.maps.MapTypeId.ROADMAP);
@@ -137,18 +116,9 @@
             } else if (type === 'skyview') {
                 map.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
                 btnRoadmap.className = ''; btnSkyview.className = 'active';
-            } else if (type === 'district') {
-                if (isDistrictOn) {
-                    map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
-                    btnDistrict.className = ''; isDistrictOn = false;
-                } else {
-                    map.addOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
-                    btnDistrict.className = 'active'; isDistrictOn = true;
-                }
             }
         }
 
-        // ⭐️ [검색] 버튼 기능 : 주소를 찾아서 지도만 스르륵 이동시켜줌
         function searchOnly() {
             var keyword = document.getElementById('addressInput').value;
             if (!keyword) { alert("주소를 입력해주세요!"); return; }
@@ -163,7 +133,6 @@
             });
         }
 
-        // ⭐️ [핀] 버튼 기능 : 주소 위치에 색깔 핀을 쾅! 꽂아줌
         function addPin() {
             var keyword = document.getElementById('addressInput').value;
             var selectedColor = document.getElementById('colorSelect').value;
@@ -182,8 +151,6 @@
                     }
 
                     var marker = new kakao.maps.Marker(markerOptions);
-                    
-                    // 방금 만든 핀을 바구니에 담아두기
                     markers.push(marker); 
 
                     var iwContent = '<div class="info-title">' + keyword + '</div>';
@@ -200,13 +167,12 @@
             });
         }
 
-        // ⭐️ [삭제] 버튼 기능 : 바구니에 담긴 핀들을 전부 지도에서 치워버림
         function clearPins() {
             for (var i = 0; i < markers.length; i++) {
-                markers[i].setMap(null); // 지도에서 지우기
+                markers[i].setMap(null);
             }
-            markers = []; // 바구니 싹 비우기
-            document.getElementById('addressInput').value = ""; // 검색창 글씨도 초기화
+            markers = []; 
+            document.getElementById('addressInput').value = ""; 
         }
     </script>
 </body>
