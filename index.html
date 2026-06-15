@@ -4,40 +4,135 @@
     <meta charset="utf-8">
     <title>전기울타리 점검 현황</title>
     <style>
+        /* 화면 꽉 채우기 */
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #map { width: 100vw; height: 100vh; }
         
-        #searchBox {
+        /* ⭐️ 왼쪽 메뉴판 전체 디자인 ⭐️ */
+        #controlPanel {
             position: absolute;
             top: 20px;
             left: 20px;
             z-index: 2; 
-            background: rgba(255, 255, 255, 0.95);
-            padding: 15px;
+            background: white;
+            width: 320px;
             border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             font-family: 'Malgun Gothic', sans-serif;
+            overflow: hidden; /* 둥근 모서리 밖으로 삐져나가는 것 방지 */
         }
-        input { padding: 8px; font-size: 14px; width: 220px; border: 1px solid #ccc; border-radius: 4px; }
-        select { padding: 8px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 8px 12px; font-size: 14px; background: #0056b3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #004494; }
+
+        /* 1. 맨 위 접기 버튼 (파란색 바탕) */
+        #toggleBtn {
+            width: 100%;
+            background: #0056b3;
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+        }
+        #toggleBtn:hover { background: #004494; }
+
+        /* 패널 안쪽 내용물 여백 */
+        #panelContent { padding: 15px; }
+
+        /* 2. 지도 종류 버튼 그룹 */
+        .map-type-btns {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .map-type-btns button {
+            flex: 1; /* 세 버튼이 1:1:1 비율로 꽉 차게 */
+            margin: 0 2px;
+            padding: 8px 0;
+            background: white;
+            color: #0056b3;
+            border: 1px solid #0056b3;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        /* 버튼이 눌렸을 때(활성화) 색상 반전 */
+        .map-type-btns button.active {
+            background: #0056b3;
+            color: white;
+        }
+
+        /* 3. 주소 타이틀 영역 */
+        .title-area {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0056b3;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .title-area span.badge {
+            background: #0056b3;
+            color: white;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            margin-left: 8px;
+        }
+
+        /* 4. 검색창 영역 */
+        .search-box input {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box; /* 패딩 땜에 삐져나가는거 방지 */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .search-box select { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .search-box .btn-search {
+            width: 100%;
+            padding: 10px;
+            background: white;
+            color: #0056b3;
+            border: 1px solid #0056b3;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .search-box .btn-search:hover { background: #f0f8ff; }
         
-        /* 말풍선 안쪽 글씨 예쁘게 꾸미기 */
         .info-title { padding: 5px 10px; font-size: 14px; font-weight: bold; color: #333; text-align: center; }
     </style>
 </head>
 <body>
-    <div id="searchBox">
-        <b>🔍 부적합 주소 등록</b><br><br>
-        <input type="text" id="addressInput" placeholder="주소 입력 (예: 청주시 사직동)">
+    <div id="controlPanel">
+        <button id="toggleBtn" onclick="togglePanel()">접기 ▲</button>
         
-        <select id="colorSelect">
-            <option value="red">🔴 빨간 핀 (위험)</option>
-            <option value="blue">🔵 파란 핀 (주의)</option>
-        </select>
-        
-        <button onclick="searchAndPin()">핀 꽂기</button>
+        <div id="panelContent">
+            
+            <div class="map-type-btns">
+                <button id="btnRoadmap" class="active" onclick="setMapType('roadmap')">일반지도</button>
+                <button id="btnSkyview" onclick="setMapType('skyview')">위성지도</button>
+                <button id="btnDistrict" onclick="setMapType('district')">지적편집도</button>
+            </div>
+
+            <div class="title-area">
+                📍 주소 <span class="badge">현황</span>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="addressInput" placeholder="주소 입력 (예: 청주시 사직동)">
+                <select id="colorSelect">
+                    <option value="red">🔴 빨간 핀 (위험)</option>
+                    <option value="blue">🔵 파란 핀 (주의)</option>
+                </select>
+                <button class="btn-search" onclick="searchAndPin()">🔍 검색 및 핀 꽂기</button>
+            </div>
+
+        </div>
     </div>
 
     <div id="map"></div>
@@ -50,14 +145,63 @@
         var map = new kakao.maps.Map(mapContainer, mapOption);
         var geocoder = new kakao.maps.services.Geocoder();
 
+        // ⭐️ 추가기능 1: 메뉴판 접기/펼치기 로직
+        function togglePanel() {
+            var content = document.getElementById('panelContent');
+            var btn = document.getElementById('toggleBtn');
+            
+            // 만약 내용물이 보이고 있다면 숨겨라
+            if (content.style.display !== 'none') {
+                content.style.display = 'none';
+                btn.innerText = '펼치기 ▼';
+            } else { // 숨겨져 있다면 다시 보여라
+                content.style.display = 'block';
+                btn.innerText = '접기 ▲';
+            }
+        }
+
+        // ⭐️ 추가기능 2: 지도 종류 바꾸기 로직 (일반, 위성, 지적도)
+        var isDistrictOn = false; // 지적도가 켜져있는지 확인하는 스위치
+
+        function setMapType(type) {
+            var btnRoadmap = document.getElementById('btnRoadmap');
+            var btnSkyview = document.getElementById('btnSkyview');
+            var btnDistrict = document.getElementById('btnDistrict');
+
+            // 일반지도 클릭 시
+            if (type === 'roadmap') {
+                map.setMapTypeId(kakao.maps.MapTypeId.ROADMAP);
+                btnRoadmap.className = 'active'; // 파란색 불 켜기
+                btnSkyview.className = '';       // 위성지도는 불 끄기
+            } 
+            // 위성지도 클릭 시
+            else if (type === 'skyview') {
+                map.setMapTypeId(kakao.maps.MapTypeId.HYBRID); // HYBRID는 위성사진 위에 도로선도 그려줌
+                btnRoadmap.className = '';       // 일반지도 불 끄기
+                btnSkyview.className = 'active'; // 파란색 불 켜기
+            }
+            // 지적편집도 클릭 시 (이건 일반/위성 지도 위에 겹쳐서 투명하게 올라가는 방식이야)
+            else if (type === 'district') {
+                if (isDistrictOn) {
+                    // 켜져있으면 끄기
+                    map.removeOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
+                    btnDistrict.className = '';
+                    isDistrictOn = false;
+                } else {
+                    // 꺼져있으면 켜기
+                    map.addOverlayMapTypeId(kakao.maps.MapTypeId.USE_DISTRICT);
+                    btnDistrict.className = 'active';
+                    isDistrictOn = true;
+                }
+            }
+        }
+
+        // 기존 핀 꽂기 로직
         function searchAndPin() {
             var keyword = document.getElementById('addressInput').value;
             var selectedColor = document.getElementById('colorSelect').value;
 
-            if (!keyword) {
-                alert("주소를 입력해주세요!");
-                return;
-            }
+            if (!keyword) { alert("주소를 입력해주세요!"); return; }
 
             geocoder.addressSearch(keyword, function(result, status) {
                 if (status === kakao.maps.services.Status.OK) {
@@ -70,20 +214,11 @@
                         markerOptions.image = new kakao.maps.MarkerImage(imageSrc, imageSize);
                     }
 
-                    // 1. 지도에 핀 꽂기
                     var marker = new kakao.maps.Marker(markerOptions);
+                    var iwContent = '<div class="info-title">' + keyword + '</div>';
+                    var infowindow = new kakao.maps.InfoWindow({ content : iwContent, removable : true });
 
-                    // ⭐️ 2. 말풍선(인포윈도우) 만들기 ⭐️
-                    var iwContent = '<div class="info-title">' + keyword + '</div>'; // 검색한 주소를 말풍선 안에 쏙!
-                    
-                    var infowindow = new kakao.maps.InfoWindow({
-                        content : iwContent,
-                        removable : true // x 버튼 눌러서 끌 수 있게 만들기
-                    });
-
-                    // ⭐️ 3. 핀에다가 '클릭 감지 센서' 달아주기 ⭐️
                     kakao.maps.event.addListener(marker, 'click', function() {
-                        // 클릭하면 말풍선을 열어라!
                         infowindow.open(map, marker);
                     });
 
