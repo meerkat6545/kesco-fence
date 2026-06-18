@@ -113,12 +113,15 @@
             }
         }
 
+        // ⭐️ [검색] 기능: 핀은 안 꽂고 지도만 해당 주소로 이동!
         function searchOnly() {
             var keyword = document.getElementById('addressInput').value;
             if (!keyword) { alert("주소를 입력해주세요!"); return; }
             geocoder.addressSearch(keyword, function(result, status) {
                 if (status === kakao.maps.services.Status.OK) {
                     map.panTo(new kakao.maps.LatLng(result[0].y, result[0].x));
+                } else {
+                    alert("주소를 찾을 수 없습니다. 오타가 없는지 확인해주세요!");
                 }
             });
         }
@@ -146,6 +149,8 @@
                     markers.push(marker);
                     kakao.maps.event.addListener(marker, 'click', function() { infowindow.open(map, marker); });
                     map.panTo(coords);
+                } else {
+                    alert("주소를 찾을 수 없습니다. 오타가 없는지 확인해주세요!");
                 }
             });
         }
@@ -166,6 +171,15 @@
             for (var i = 0; i < markers.length; i++) { markers[i].setMap(null); }
             markers = [];
         }
+
+        // ⭐️⭐️ 새로 추가된 마법: 엔터키 감지 센서 ⭐️⭐️
+        document.getElementById('addressInput').addEventListener('keypress', function(e) {
+            // 만약 누른 키가 'Enter(엔터)' 라면?
+            if (e.key === 'Enter') {
+                searchOnly(); // 마우스로 [검색] 버튼을 누른 것과 똑같이 실행해라!
+            }
+        });
+
     </script>
 </body>
 </html>
