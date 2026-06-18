@@ -67,7 +67,7 @@
             </div>
 
             <div class="search-box">
-                <input type="text" id="addressInput" placeholder="주소 입력 (예: 청주시 사직동)" onkeydown="if(event.key === 'Enter') { addPin(); return false; }">
+                <input type="text" id="addressInput" placeholder="주소/상호명 입력 (예: 청천면사무소)" onkeydown="if(event.key === 'Enter') { searchOnly(); return false; }">
                 
                 <select id="colorSelect">
                     <option value="red">🔴 빨간 핀 (위험)</option>
@@ -75,7 +75,7 @@
                 </select>
                 
                 <div class="action-btns">
-                    <button onclick="addPin()">검색</button>
+                    <button onclick="searchOnly()">검색</button>
                     <button onclick="addPin()">핀</button>
                     <button onclick="clearAllPins()">삭제</button>
                 </div>
@@ -91,8 +91,13 @@
         var mapContainer = document.getElementById('map');
         var mapOption = { center: new kakao.maps.LatLng(36.6424, 127.4890), level: 6 };
         var map = new kakao.maps.Map(mapContainer, mapOption);
+        
+        // 주소 검색기 & 상호명 검색기 둘 다 준비!
         var geocoder = new kakao.maps.services.Geocoder();
+        var ps = new kakao.maps.services.Places(); 
+        
         var markers = []; 
+        var tempMarker = null; // ⭐️ 임시 파란색 마커를 담아둘 변수
 
         function togglePanel() {
             var content = document.getElementById('panelContent');
@@ -116,44 +121,76 @@
             }
         }
 
-        // ⭐️ 주소 치고 검색 누르거나 엔터치면 무조건 실행되는 마법 ⭐️
+        // ⭐️ 하이브리드 검색 함수 (주소 찾고 없으면 상호명으로 알아서 찾기) ⭐️
+        function findLocation(keyword, callback) {
+            // 1차: 주소로 검색
+            geocoder.addressSearch(keyword, function(result, status) {
+                if (status === kakao.maps.services.Status.OK) {
+                    callback(new kakao.maps.LatLng(result[0].y, result[0].x));
+                } else {
+                    // 2차: 주소가 아니면 상호명(예: 청천면사무소)으로 검색
+                    ps.keywordSearch(keyword, function(data, status) {
+                        if (status === kakao.maps.services.Status.OK) {
+                            callback(new kakao.maps.LatLng(data[0].y, data[0].x));
+                        } else {
+                            alert("주소나 상호를 찾을 수 없습니다. 오타가 없는지 확인해주세요!");
+                        }
+                    });
+                }
+            });
+        }
+
+        // ⭐️ [검색] 버튼 또는 엔터키: 위치만 찾아서 파란색 임시 마커 띄우기
+        function searchOnly() {
+            var keyword = document.getElementById('addressInput').value;
+            if (!keyword) { alert("주소나 상호를 입력해주세요!"); return; }
+
+            findLocation(keyword, function(coords) {
+                // 예전에 찍혀있던 임시 마커가 있으면 지워주기
+                if (tempMarker) { tempMarker.setMap(null); }
+
+                // 카카오 기본 파란색 마커를 임시로 꽂아주기
+                tempMarker = new kakao.maps.Marker({
+                    position: coords,
+                    map: map
+                });
+
+                // 그 위치로 부드럽게 이동
+                map.panTo(coords);
+            });
+        }
+
+        // ⭐️ [핀] 버튼: 내가 고른 색깔 핀을 영구적으로 박고 말풍선 띄우기
         function addPin() {
             var keyword = document.getElementById('addressInput').value;
             var selectedColor = document.getElementById('colorSelect').value;
-            if (!keyword) { alert("주소를 입력해주세요!"); return; }
+            if (!keyword) { alert("주소나 상호를 입력해주세요!"); return; }
 
-            geocoder.addressSearch(keyword, function(result, status) {
-                if (status === kakao.maps.services.Status.OK) {
-                    var coords = new kakao.maps.LatLng(result[0].y, result[0].x);
-                    var markerOptions = { map: map, position: coords };
-                    
-                    if (selectedColor === "red") {
-                        markerOptions.image = new kakao.maps.MarkerImage("https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png", new kakao.maps.Size(31, 35));
-                    }
-                    var marker = new kakao.maps.Marker(markerOptions);
-                    
-                    var iwContent = '<div class="info-window-content">' +
-                                    '<div style="margin-bottom:8px; font-weight:bold; color:#0056b3;">' + keyword + '</div>' +
-                                    '<button onclick="deleteThisMarker(this)" class="delete-btn-small">삭제</button>' +
-                                    '</div>';
-                    var infowindow = new kakao.maps.InfoWindow({ content: iwContent, removable: true });
-                    marker.infowindow = infowindow;
-                    markers.push(marker);
-                    
-                    // ⭐️ 핀 꽂자마자 말풍선 바로 열기!
-                    infowindow.open(map, marker);
-                    
-                    // 핀 클릭해도 말풍선 열리기
-                    kakao.maps.event.addListener(marker, 'click', function() { infowindow.open(map, marker); });
-                    
-                    // 지도 스르륵 이동
-                    map.panTo(coords);
-                    
-                    // 검색창 비우기
-                    document.getElementById('addressInput').value = "";
-                } else {
-                    alert("주소를 찾을 수 없습니다. 오타가 없는지 확인해주세요!");
+            findLocation(keyword, function(coords) {
+                var markerOptions = { map: map, position: coords };
+                
+                // 빨간 핀 선택 시에만 빨간 이미지 적용 (파란 핀은 카카오 기본 마커 사용)
+                if (selectedColor === "red") {
+                    markerOptions.image = new kakao.maps.MarkerImage("https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png", new kakao.maps.Size(31, 35));
                 }
+                var marker = new kakao.maps.Marker(markerOptions);
+                
+                var iwContent = '<div class="info-window-content">' +
+                                '<div style="margin-bottom:8px; font-weight:bold; color:#0056b3;">' + keyword + '</div>' +
+                                '<button onclick="deleteThisMarker(this)" class="delete-btn-small">삭제</button>' +
+                                '</div>';
+                var infowindow = new kakao.maps.InfoWindow({ content: iwContent, removable: true });
+                marker.infowindow = infowindow;
+                markers.push(marker);
+                
+                // 핀을 영구적으로 꽂았으니 임시 파란 마커는 지워버리기
+                if (tempMarker) { tempMarker.setMap(null); tempMarker = null; }
+
+                infowindow.open(map, marker);
+                kakao.maps.event.addListener(marker, 'click', function() { infowindow.open(map, marker); });
+                
+                map.panTo(coords);
+                document.getElementById('addressInput').value = ""; // 입력창 비우기
             });
         }
 
@@ -172,6 +209,8 @@
         function clearAllPins() {
             for (var i = 0; i < markers.length; i++) { markers[i].setMap(null); }
             markers = [];
+            // 임시 마커도 같이 날려주기
+            if (tempMarker) { tempMarker.setMap(null); tempMarker = null; }
         }
     </script>
 </body>
