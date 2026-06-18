@@ -92,13 +92,39 @@
         var mapOption = { center: new kakao.maps.LatLng(36.6424, 127.4890), level: 6 };
         var map = new kakao.maps.Map(mapContainer, mapOption);
         
-        // 주소 검색기 & 상호명 검색기 둘 다 준비!
         var geocoder = new kakao.maps.services.Geocoder();
         var ps = new kakao.maps.services.Places(); 
         
         var markers = []; 
-        var tempMarker = null; // ⭐️ 임시 파란색 마커를 담아둘 변수
+        var tempMarker = null; 
 
+        // ⭐️ 1. 비밀 수첩(로컬 스토리지)에 핀 정보 저장하기 ⭐️
+        function savePinsToStorage() {
+            var pinDataToSave = [];
+            for (var i = 0; i < markers.length; i++) {
+                pinDataToSave.push({
+                    lat: markers[i].getPosition().getLat(),
+                    lng: markers[i].getPosition().getLng(),
+                    title: markers[i].customTitle,
+                    color: markers[i].customColor
+                });
+            }
+            // 수첩에 글씨로 예쁘게 적어서 저장!
+            localStorage.setItem('mySavedPins', JSON.stringify(pinDataToSave));
+        }
+
+        // ⭐️ 2. 새로고침 했을 때 비밀 수첩 읽어오기 ⭐️
+        function loadPinsFromStorage() {
+            var savedData = localStorage.getItem('mySavedPins');
+            if (savedData) {
+                var parsedData = JSON.parse(savedData); // 적힌 글씨를 다시 데이터로 변환
+                for (var i = 0; i < parsedData.length; i++) {
+                    createMarkerOnMap(parsedData[i].lat, parsedData[i].lng, parsedData[i].title, parsedData[i].color, false);
+                }
+            }
+        }
+
+        // 메뉴 접기/펼치기
         function togglePanel() {
             var content = document.getElementById('panelContent');
             var btn = document.getElementById('toggleBtn');
@@ -109,6 +135,7 @@
             }
         }
 
+        // 지도 종류 변경
         function setMapType(type) {
             var btnRoadmap = document.getElementById('btnRoadmap');
             var btnSkyview = document.getElementById('btnSkyview');
@@ -121,14 +148,11 @@
             }
         }
 
-        // ⭐️ 하이브리드 검색 함수 (주소 찾고 없으면 상호명으로 알아서 찾기) ⭐️
         function findLocation(keyword, callback) {
-            // 1차: 주소로 검색
             geocoder.addressSearch(keyword, function(result, status) {
                 if (status === kakao.maps.services.Status.OK) {
                     callback(new kakao.maps.LatLng(result[0].y, result[0].x));
                 } else {
-                    // 2차: 주소가 아니면 상호명(예: 청천면사무소)으로 검색
                     ps.keywordSearch(keyword, function(data, status) {
                         if (status === kakao.maps.services.Status.OK) {
                             callback(new kakao.maps.LatLng(data[0].y, data[0].x));
@@ -140,57 +164,62 @@
             });
         }
 
-        // ⭐️ [검색] 버튼 또는 엔터키: 위치만 찾아서 파란색 임시 마커 띄우기
         function searchOnly() {
             var keyword = document.getElementById('addressInput').value;
             if (!keyword) { alert("주소나 상호를 입력해주세요!"); return; }
 
             findLocation(keyword, function(coords) {
-                // 예전에 찍혀있던 임시 마커가 있으면 지워주기
                 if (tempMarker) { tempMarker.setMap(null); }
-
-                // 카카오 기본 파란색 마커를 임시로 꽂아주기
-                tempMarker = new kakao.maps.Marker({
-                    position: coords,
-                    map: map
-                });
-
-                // 그 위치로 부드럽게 이동
+                tempMarker = new kakao.maps.Marker({ position: coords, map: map });
                 map.panTo(coords);
             });
         }
 
-        // ⭐️ [핀] 버튼: 내가 고른 색깔 핀을 영구적으로 박고 말풍선 띄우기
+        // ⭐️ 지도에 핀을 실제로 그려주는 핵심 함수 ⭐️
+        function createMarkerOnMap(lat, lng, title, color, isPanTo) {
+            var coords = new kakao.maps.LatLng(lat, lng);
+            var markerOptions = { map: map, position: coords };
+            
+            if (color === "red") {
+                markerOptions.image = new kakao.maps.MarkerImage("https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png", new kakao.maps.Size(31, 35));
+            }
+            
+            var marker = new kakao.maps.Marker(markerOptions);
+            
+            // 저장할 때 쓰려고 마커 안에 이름표랑 색깔표를 붙여둠
+            marker.customTitle = title;
+            marker.customColor = color;
+            
+            var iwContent = '<div class="info-window-content">' +
+                            '<div style="margin-bottom:8px; font-weight:bold; color:#0056b3;">' + title + '</div>' +
+                            '<button onclick="deleteThisMarker(this)" class="delete-btn-small">삭제</button>' +
+                            '</div>';
+            var infowindow = new kakao.maps.InfoWindow({ content: iwContent, removable: true });
+            
+            marker.infowindow = infowindow;
+            markers.push(marker);
+            
+            if (tempMarker) { tempMarker.setMap(null); tempMarker = null; }
+
+            kakao.maps.event.addListener(marker, 'click', function() { infowindow.open(map, marker); });
+            
+            if (isPanTo) {
+                infowindow.open(map, marker);
+                map.panTo(coords);
+            }
+            
+            // 핀 꽂을 때마다 수첩에 자동 저장!
+            savePinsToStorage();
+        }
+
         function addPin() {
             var keyword = document.getElementById('addressInput').value;
             var selectedColor = document.getElementById('colorSelect').value;
             if (!keyword) { alert("주소나 상호를 입력해주세요!"); return; }
 
             findLocation(keyword, function(coords) {
-                var markerOptions = { map: map, position: coords };
-                
-                // 빨간 핀 선택 시에만 빨간 이미지 적용 (파란 핀은 카카오 기본 마커 사용)
-                if (selectedColor === "red") {
-                    markerOptions.image = new kakao.maps.MarkerImage("https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png", new kakao.maps.Size(31, 35));
-                }
-                var marker = new kakao.maps.Marker(markerOptions);
-                
-                var iwContent = '<div class="info-window-content">' +
-                                '<div style="margin-bottom:8px; font-weight:bold; color:#0056b3;">' + keyword + '</div>' +
-                                '<button onclick="deleteThisMarker(this)" class="delete-btn-small">삭제</button>' +
-                                '</div>';
-                var infowindow = new kakao.maps.InfoWindow({ content: iwContent, removable: true });
-                marker.infowindow = infowindow;
-                markers.push(marker);
-                
-                // 핀을 영구적으로 꽂았으니 임시 파란 마커는 지워버리기
-                if (tempMarker) { tempMarker.setMap(null); tempMarker = null; }
-
-                infowindow.open(map, marker);
-                kakao.maps.event.addListener(marker, 'click', function() { infowindow.open(map, marker); });
-                
-                map.panTo(coords);
-                document.getElementById('addressInput').value = ""; // 입력창 비우기
+                createMarkerOnMap(coords.getLat(), coords.getLng(), keyword, selectedColor, true);
+                document.getElementById('addressInput').value = ""; 
             });
         }
 
@@ -200,7 +229,8 @@
                 if (markers[i].infowindow.getContent() === iwContent.innerHTML) {
                     markers[i].setMap(null);
                     markers[i].infowindow.close();
-                    markers.splice(i, 1);
+                    markers.splice(i, 1); // 배열에서 빼고
+                    savePinsToStorage();  // 수첩에서도 빼고 다시 저장!
                     break;
                 }
             }
@@ -209,9 +239,15 @@
         function clearAllPins() {
             for (var i = 0; i < markers.length; i++) { markers[i].setMap(null); }
             markers = [];
-            // 임시 마커도 같이 날려주기
             if (tempMarker) { tempMarker.setMap(null); tempMarker = null; }
+            savePinsToStorage(); // 수첩도 싹 비우기!
         }
+
+        // ⭐️ 웹사이트가 켜지자마자 수첩을 확인해서 핀 불러오기! ⭐️
+        window.onload = function() {
+            loadPinsFromStorage();
+        };
+
     </script>
 </body>
 </html>
